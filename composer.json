@@ -1,0 +1,26 @@
+{
+    "name": "lubusin/composer-edd-installer",
+    "description": "Composer plugin for installing pro plugins powered by EDD software licensing",
+    "type": "composer-plugin",
+    "require": {
+        "composer-plugin-api": "^1.1"
+    },
+    "require-dev": {
+        "composer/composer": "^1.10"
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Ajit Bohra",
+            "email": "ajit@lubus.in"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "LubusIN\\Composer\\": "src"
+        }
+    },
+    "extra": {
+        "class": "LubusIN\\Composer\\EddInstallerPlugin"
+    }
+}
