@@ -3,7 +3,8 @@
     "description": "Composer plugin for installing pro plugins powered by EDD software licensing",
     "type": "composer-plugin",
     "require": {
-        "composer-plugin-api": "^1.1"
+        "composer-plugin-api": "^1.1",
+        "vlucas/phpdotenv": "^4.1"
     },
     "require-dev": {
         "composer/composer": "^1.10"
