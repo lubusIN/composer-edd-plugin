@@ -1,6 +1,6 @@
 <?php
 
-namespace LubusIN\Composer\Exception;
+namespace LubusIN\ComposerEddPlugin\Exception;
 
 class MissingEnvException extends \Exception
 {

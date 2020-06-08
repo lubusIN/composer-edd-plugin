@@ -5,7 +5,7 @@
  * @package LubusIN\Composer
  */
 
-namespace LubusIN\Composer;
+namespace LubusIN\ComposerEddPlugin;
 
 use Composer\Config;
 use Composer\IO\IOInterface;

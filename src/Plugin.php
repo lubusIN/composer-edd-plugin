@@ -1,5 +1,5 @@
 <?php
-namespace LubusIN\Composer;
+namespace LubusIN\ComposerEddPlugin;
 
 use Composer\Composer;
 use Composer\EventDispatcher\EventSubscriberInterface;
@@ -12,13 +12,13 @@ use Composer\Plugin\PluginEvents;
 use Composer\Plugin\PreFileDownloadEvent;
 use Dotenv\Dotenv;
 use Exception;
-use LubusIN\Composer\Exception\MissingExtraException;
-use LubusIN\Composer\Exception\MissingEnvException;
+use LubusIN\ComposerEddPlugin\Exception\MissingExtraException;
+use LubusIN\ComposerEddPlugin\Exception\MissingEnvException;
 
 /**
  * Custom Installer Plugin Class.
  */
-class EddInstallerPlugin implements PluginInterface, EventSubscriberInterface {
+class Plugin implements PluginInterface, EventSubscriberInterface {
 
 	protected $composer;
 	protected $io;
@@ -100,7 +100,7 @@ class EddInstallerPlugin implements PluginInterface, EventSubscriberInterface {
 				}
 			}
 
-			$payload = [
+			$package_details = [
 				'edd_action' => 'get_version',
 				'license'    => getenv( $package_extra['license'] ),
 				'item_name'  => $package_extra['item_name'],
@@ -116,7 +116,7 @@ class EddInstallerPlugin implements PluginInterface, EventSubscriberInterface {
 				],
 			]);
 		
-			$edd_response = file_get_contents($package_dist_url . '?' . http_build_query($payload), false, $context);
+			$edd_response = file_get_contents($package_dist_url . '?' . http_build_query($package_details), false, $context);
 
 			if( !$edd_response) {
 				throw new Exception('Unable to connect to ' . $package_dist_url);

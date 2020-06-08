@@ -1,5 +1,5 @@
 {
-    "name": "lubusin/composer-edd-installer",
+    "name": "lubusin/composer-edd-plugin",
     "description": "Composer plugin for installing pro plugins powered by EDD software licensing",
     "type": "composer-plugin",
     "require": {
@@ -18,10 +18,10 @@
     ],
     "autoload": {
         "psr-4": {
-            "LubusIN\\Composer\\": "src"
+            "LubusIN\\ComposerEddPlugin\\": "src"
         }
     },
     "extra": {
-        "class": "LubusIN\\Composer\\EddInstallerPlugin"
+        "class": "LubusIN\\ComposerEddPlugin\\Plugin"
     }
 }
