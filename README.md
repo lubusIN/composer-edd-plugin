@@ -1,5 +1,5 @@
 <p align="center" style="font-size: 34px; font-weight: bold">
-    <img src=".github/logo.png" alt="Composer EDD Plugin"/>
+    <img src=".github/logo.svg" alt="Composer EDD Plugin"/>
 </p>
 <p align="center">
     <a href="https://packagist.org/packages/lubusin/composer-edd-plugin"><img src="https://poser.pugx.org/lubusin/composer-edd-plugin/v/stable" alt="Latest Stable Version"></a>
