@@ -8,19 +8,22 @@
     <a href="https://github.com/lubusin/composer-edd-plugin/blob/master/contributing.md"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs"></a>
 </p>
 
-# Introduction
-Composer EDD Plugin enable installing and manageing WordPress pro offering powered by EDD and software licensing add-on via composer. Works with any plugin or provide using EDD and SL for distrubtion.
+## Introduction
+
+Composer EDD Plugin enable installing and managing WordPress pro offerings powered by [EasyDigitalDownloads](https://easydigitaldownloads.com/) and [software licensing add-on](https://easydigitaldownloads.com/downloads/software-licensing/) via composer. Works with any plugin or theme delivered via EasyDigitalDownloads and software licensing for distribution.
 
 ## Installation
 
-Install the composer plugin to enable composer package distrubtion via EDD Software licencing.
+Install the composer plugin to enable composer package via EDD Software licencing.
 
 ``` bash
 composer require lubusin/composer-edd-plugin
 ```
 
 ## Usage 
+
 ### Step 1
+
 Add the desired WordPress premium offering(s) as package to the repositories field in composer.json. Find more about composer repositories in the [composer documentation](https://getcomposer.org/doc/05-repositories.md#package-2)
 
 ``` json
@@ -32,7 +35,7 @@ Add the desired WordPress premium offering(s) as package to the repositories fie
             "type": "wordpress-plugin",
             "dist": {
                 "type": "zip",
-                "url": "https://www.plugin-store.com"
+                "url": "https://www.productwebsite.com"
         },
     "extra": {
             "edd_installer": true,
@@ -44,24 +47,29 @@ Add the desired WordPress premium offering(s) as package to the repositories fie
 }
 ```
 
-Above package details hold important info to connect and download zip from plugin store:
+Above package details hold important info to connect and download zip from product store:
 
 **Important**
-- `name` this can be customized as per your need, it's the package name used for `composer require namespace/edd-product-name`
-- `version` used to get the zip, check account to get the version number
-- `url` store location to send request for zip file (place of purchase)
-- `edd_installer` instruct composer to download zip from plugin store
-- `item_name` name of product/plugin, you can get it from store account
-- `license` name of env variable to get the license key
-- `url` name of env variable to get the url associate with the license
+
+- `name` this can be customized as per your need, it's the package name used for `composer require namespace/edd-product-name` later
+- `version` used to get the zip, check account for version number
+- `type` use wordpress-plugin or wordpress-theme,
+
+- `url` product website url
+- `edd_installer` enable package via edd powered store 
+- `item_name` name of product, can be found under account info
+- `license` name of env variable to get the license key *(do not add your actual key here)*
+- `url` name of env variable to get the website url associated with the license. *(do not add your actual website url here)*
 
 **Note:**
-- Add multiple package enteris to add more then one plugin
-- Most EDD plugins only allow getting the latest versions of their plugins, even if you specifically ask for a version.
+
+- Add multiple package enteris to add more then one product
+- Most EDD products only allow getting the latest versions of their product, even if you specifically ask for a version.
+- Make sure license is already activated for the url.
 
 ### Step 2
 
-Create `.env` file and add the varaible names mentioned in the above step
+Create `.env` and add the varaible names mentioned in the above step. Find more about .env [here](https://github.com/vlucas/phpdotenv) 
 
 ```
 PRODUCT_LICENSE=product-license-key
@@ -70,12 +78,12 @@ PRODUCT_ACTIVATION_URL=product-activation-url
 
 ### Step 3
 
-Add the store access credentials to `auth.json` to download zip file. Find more about composer repositories in the [composer documentation](https://getcomposer.org/doc/articles/http-basic-authentication.md) 
+Create the `auth.json` and Add the store access credentials. Find more about http-basic-authentication in the [composer documentation](https://getcomposer.org/doc/articles/http-basic-authentication.md) 
 
 ``` json
 {
     "http-basic": {
-        "edd-store-url.com": {
+        "productwebsite.com": {
             "username": "your-username",
             "password": "your-password"
         },
@@ -83,9 +91,15 @@ Add the store access credentials to `auth.json` to download zip file. Find more 
 }
 ```
 
+**Important**
+
+- `productwebsite.com` product website domain name
+- `username` login username for product website
+- `username` login password for product website
+
 **Note**
 
-To add credentials more than one plugin stores add multiple credentials keys under `http-basic` 
+To add credentials for more than one product stores add multiple credentials under `http-basic` 
 
 ### Step 4
 
@@ -96,14 +110,14 @@ composer require namespace/edd-product-name
 ```
 
 **Note**
-
-To install multiple plugin add them seperating with space.
+- Use the name set in step 1 
+- To install multiple products add them seperating with space.
 
 ## Changelog
 
 Please see the [Changelog](CHANGELOG.md) 
 
-## Feedback/Suggestions
+## Feedback / Suggestions
 
 If you have any suggestions/feature request that you would like to see in the upcoming releases, feel free to let us know in the [issues section](https://github.com/lubusIN/composer-edd-plugin/issues)
 
@@ -120,6 +134,17 @@ If you discover any security related issues, please email to [info@lubus.in](mai
 ## Credits
 
 [Ajit Bohra](http://https://twitter.com/ajitbohra)
+
+## Special Mentions
+
+- Inspiration https://github.com/polylang/polylang/issues/3
+- Motivation [@szepeviktor](https://github.com/szepeviktor) | https://github.com/polylang/polylang/issues/3#issuecomment-636411477
+- Logo icon credits [prosymbols](https://thenounproject.com/prosymbols)
+- Code inspiration
+    - https://github.com/ffraenz/private-composer-installer/
+    - https://github.com/junaidbhura/composer-wp-pro-plugins/
+    - https://github.com/szepeviktor/composer-envato
+    - https://github.com/mautic/composer-plugin/
 
 ##  Support Us
 
