@@ -55,7 +55,7 @@ Above package details hold important info to connect and download zip from produ
 - `version` used to get the zip, check account for version number
 - `type` use wordpress-plugin or wordpress-theme,
 
-- `url` product website url
+- `url` product website url (include https)
 - `edd_installer` enable package via edd powered store 
 - `item_name` name of product, can be found under account info
 - `license` name of env variable to get the license key *(do not add your actual key here)*
@@ -83,7 +83,7 @@ Create the `auth.json` and Add the store access credentials. Find more about htt
 ``` json
 {
     "http-basic": {
-        "productwebsite.com": {
+        "www.productwebsite.com": {
             "username": "your-username",
             "password": "your-password"
         },
@@ -93,9 +93,9 @@ Create the `auth.json` and Add the store access credentials. Find more about htt
 
 **Important**
 
-- `productwebsite.com` product website domain name
+- `www.productwebsite.com` product website host name
 - `username` login username for product website
-- `username` login password for product website
+- `password` login password for product website
 
 **Note**
 
@@ -109,11 +109,11 @@ Install the plugin
 composer require namespace/edd-product-name 
 ```
 
-**Troubleshooting**
+## Troubleshooting
 
 ```
 [Composer\Downloader\TransportException]
-  Your configuration does not allow connections to http://edd-store.com See https://getcomposer.org/doc/06-config.md#sec
+  Your configuration does not allow connections to http://www.productwebsite.com See https://getcomposer.org/doc/06-config.md#sec
   ure-http for details.
 ```
 you will get above error if edd store deliver file over `http` instead of `https`. To fix this config composer to allow non secure url by setting `secure-http` to false. Find more about secure-http in the [composer documentation](https://getcomposer.org/doc/06-config.md#secure-http)   

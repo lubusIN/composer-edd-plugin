@@ -61,8 +61,6 @@ class RemoteFilesystem extends \Composer\Util\RemoteFilesystem {
         $progress = true,
         $options = []
     ) {
-        print $originUrl;
-        print $this->fileUrl;
         return parent::copy(
             $originUrl,
             $this->fileUrl,
