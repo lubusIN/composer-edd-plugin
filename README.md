@@ -109,6 +109,15 @@ Install the plugin
 composer require namespace/edd-product-name 
 ```
 
+**Troubleshooting**
+
+```
+[Composer\Downloader\TransportException]
+  Your configuration does not allow connections to http://edd-store.com See https://getcomposer.org/doc/06-config.md#sec
+  ure-http for details.
+```
+you will get above error if edd store deliver file over `http` instead of `https`. To fix this config composer to allow non secure url by setting `secure-http` to false. Find more about secure-http in the [composer documentation](https://getcomposer.org/doc/06-config.md#secure-http)   
+
 **Note**
 - Use the name set in step 1 
 - To install multiple products add them seperating with space.
