@@ -86,7 +86,7 @@ Create the `auth.json` and Add the store access credentials. Find more about htt
     "www.productwebsite.com": {
       "username": "your-username",
       "password": "your-password"
-    },
+    }
   }
 }
 ```
