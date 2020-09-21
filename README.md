@@ -28,22 +28,22 @@ Add the desired WordPress premium offering(s) as package to the repositories fie
 
 ``` json
 {
-    "type": "package",
-    "package": {
-            "name": "namespace/edd-product-name",
-            "version": "version-number",
-            "type": "wordpress-plugin",
-            "dist": {
-                "type": "zip",
-                "url": "https://www.productwebsite.com"
-        },
+  "type": "package",
+  "package": {
+    "name": "namespace/edd-product-name",
+    "version": "version-number",
+    "type": "wordpress-plugin",
+    "dist": {
+      "type": "zip",
+      "url": "https://www.productwebsite.com"
+    },
     "extra": {
-            "edd_installer": true,
-            "item_name": "Product Name",
-            "license": "PRODUCT_LICENSE",
-            "url": "PRODUCT_ACTIVATION_URL"
-        }
+      "edd_installer": true,
+      "item_name": "Product Name",
+      "license": "PRODUCT_LICENSE",
+      "url": "PRODUCT_ACTIVATION_URL"
     }
+  }
 }
 ```
 
@@ -82,12 +82,12 @@ Create the `auth.json` and Add the store access credentials. Find more about htt
 
 ``` json
 {
-    "http-basic": {
-        "www.productwebsite.com": {
-            "username": "your-username",
-            "password": "your-password"
-        },
+  "http-basic": {
+    "www.productwebsite.com": {
+      "username": "your-username",
+      "password": "your-password"
     }
+  }
 }
 ```
 
