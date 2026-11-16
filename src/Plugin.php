@@ -125,25 +125,27 @@ class Plugin implements PluginInterface, EventSubscriberInterface
             throw new MissingExtraException('item_name or item_id');
         }
 
-        if (empty($extra['license'])) {
-            throw new MissingExtraException('license');
+        $licenseVar = $extra['license_var'] ?? $extra['license'] ?? null;
+        if (empty($licenseVar)) {
+            throw new MissingExtraException('license (or license_var)');
         }
 
-        $licenseKey = $this->getEnvValue($extra['license']);
+        $licenseKey = $this->getEnvValue((string) $licenseVar);
         if (!$licenseKey) {
-            throw new MissingEnvException($extra['license']);
+            throw new MissingEnvException((string) $licenseVar);
         }
 
-        if (empty($extra['url'])) {
-            throw new MissingExtraException('url');
+        $urlVar = $extra['url_var'] ?? $extra['url'] ?? null;
+        if (empty($urlVar)) {
+            throw new MissingExtraException('url (or url_var)');
         }
 
-        $activationUrl = $this->getEnvValue($extra['url']);
-        if (!$activationUrl && (strpos($extra['url'], 'http://') === 0 || strpos($extra['url'], 'https://') === 0)) {
-            $activationUrl = $extra['url'];
+        $activationUrl = $this->getEnvValue((string) $urlVar);
+        if (!$activationUrl && (strpos((string) $urlVar, 'http://') === 0 || strpos((string) $urlVar, 'https://') === 0)) {
+            $activationUrl = (string) $urlVar;
         }
         if (!$activationUrl) {
-            throw new MissingEnvException($extra['url']);
+            throw new MissingEnvException((string) $urlVar);
         }
 
         $packageDistUrl = $extra['store_url'] ?? $package->getDistUrl();

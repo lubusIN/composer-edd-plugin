@@ -313,6 +313,42 @@ class PluginTest extends TestCase
         $this->assertSame('https://store.test/download_42.zip', $event->getProcessedUrl());
     }
 
+    public function testSuccessfulDownloadUrlRewritingWithLicenseVarAndUrlVar(): void
+    {
+        putenv('TEST_EDD_LICENSE=secret_license_key');
+        putenv('TEST_EDD_URL=https://client.site');
+
+        $response = $this->createMock(Response::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $response->method('getBody')->willReturn(json_encode([
+            'download_link' => 'https://store.test/download_var.zip',
+        ]));
+
+        $httpDownloader = $this->createMock(HttpDownloader::class);
+        $httpDownloader->expects($this->once())
+            ->method('get')
+            ->with($this->callback(function (string $url) {
+                return strpos($url, 'license=secret_license_key') !== false
+                    && strpos($url, 'url=https%3A%2F%2Fclient.site') !== false;
+            }))
+            ->willReturn($response);
+
+        $plugin = new Plugin();
+        $plugin->activate($this->createMockComposer($httpDownloader), $this->createMockIO());
+
+        $package = $this->createMockPackage([
+            'edd_installer' => true,
+            'item_id'       => 99,
+            'license_var'   => 'TEST_EDD_LICENSE',
+            'url_var'       => 'TEST_EDD_URL',
+        ], 'https://store.test');
+
+        $event = $this->createPreFileDownloadEvent($package, 'https://store.test', 'package', $httpDownloader);
+
+        $plugin->onPreFileDownload($event);
+        $this->assertSame('https://store.test/download_var.zip', $event->getProcessedUrl());
+    }
+
     public function testFallbackToPackageFieldInResponse(): void
     {
         putenv('TEST_EDD_LICENSE=secret_license_key');
