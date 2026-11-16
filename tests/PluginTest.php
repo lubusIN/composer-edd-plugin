@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LubusIN\ComposerEddPlugin\Tests;
 
 use Composer\Plugin\PluginEvents;
+use Composer\Downloader\TransportException;
 use Composer\Util\Http\Response;
 use Composer\Util\HttpDownloader;
 use Exception;
@@ -590,6 +591,92 @@ class PluginTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('HTTP 500 error when connecting to EDD store');
         $plugin->onPreFileDownload($event);
+    }
+
+    public function testHttpErrorsPreserveEddDetailsAndHandleInvalidBodies(): void
+    {
+        putenv('TEST_EDD_LICENSE=valid_key');
+        putenv('TEST_EDD_URL=https://client.site');
+
+        $bodies = [
+            ['{"message":"Your license has expired.","error":"expired"}', ': Your license has expired.'],
+            ['{"error":"invalid_license"}', ': invalid_license'],
+            ['{"license":"expired"}', ': expired'],
+            ['{"message":[],"error":"invalid_license"}', ': invalid_license'],
+            ['{"message":" ","error":false}', ''],
+            ['<html>Access denied</html>', ''],
+            ['{invalid json', ''],
+            ['null', ''],
+            ['', ''],
+            [null, ''],
+        ];
+
+        foreach ([401, 403, 500] as $statusCode) {
+            foreach ($bodies as [$body, $detail]) {
+                foreach ([false, true] as $useTransportException) {
+                    $transportError = new TransportException('HTTP request failed');
+                    $transportError->setStatusCode($statusCode);
+                    $transportError->setResponse($body);
+
+                    $httpDownloader = $this->createMock(HttpDownloader::class);
+                    if ($useTransportException) {
+                        $httpDownloader->method('get')->willThrowException($transportError);
+                    } else {
+                        $response = $this->createMock(Response::class);
+                        $response->method('getStatusCode')->willReturn($statusCode);
+                        $response->method('getBody')->willReturn($body ?? '');
+                        $httpDownloader->method('get')->willReturn($response);
+                    }
+
+                    $plugin = new Plugin();
+                    $plugin->activate($this->createMockComposer($httpDownloader), $this->createMockIO());
+                    $package = $this->createMockPackage([
+                        'edd_installer' => true,
+                        'item_name' => 'Pro Plugin',
+                        'license' => 'TEST_EDD_LICENSE',
+                        'url' => 'TEST_EDD_URL',
+                    ], 'https://store.test');
+
+                    try {
+                        $plugin->onPreFileDownload($this->createPreFileDownloadEvent($package));
+                        $this->fail('An HTTP error must not produce a download URL.');
+                    } catch (MissingAuthException | RuntimeException $e) {
+                        if ($statusCode === 401 || $statusCode === 403) {
+                            $this->assertInstanceOf(MissingAuthException::class, $e);
+                            $expected = sprintf('Authentication failed for "https://store.test" (HTTP %d)', $statusCode)
+                                . $detail . ' (see https://github.com/lubusIN/composer-edd-plugin for details)';
+                        } else {
+                            $this->assertInstanceOf(RuntimeException::class, $e);
+                            $expected = 'HTTP 500 error when connecting to EDD store at "https://store.test"' . $detail;
+                        }
+
+                        $this->assertSame($expected, $e->getMessage());
+                        $this->assertSame($useTransportException ? $transportError : null, $e->getPrevious());
+                    }
+                }
+            }
+        }
+    }
+
+    public function testTransportFailureWithoutHttpStatusRemainsAConnectionError(): void
+    {
+        putenv('TEST_EDD_LICENSE=valid_key');
+        $transportError = new TransportException('Connection timed out');
+        $httpDownloader = $this->createMock(HttpDownloader::class);
+        $httpDownloader->method('get')->willThrowException($transportError);
+
+        $plugin = new Plugin();
+        $plugin->activate($this->createMockComposer($httpDownloader), $this->createMockIO());
+        $package = $this->createMockPackage([
+            'edd_installer' => true,
+            'item_name' => 'Pro Plugin',
+            'license' => 'TEST_EDD_LICENSE',
+            'url' => 'https://client.site',
+        ], 'https://store.test');
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Unable to connect to EDD store at "https://store.test": Connection timed out');
+        $plugin->onPreFileDownload($this->createPreFileDownloadEvent($package));
     }
 
     public function testThrowsRuntimeExceptionOnInvalidJsonResponse(): void
