@@ -62,10 +62,13 @@ Add the product to the `repositories` array in your `composer.json`:
 - `type`: Package type (`wordpress-plugin` or `wordpress-theme`).
 - `dist.url`: Product store URL.
 - `extra.edd_installer`: Set to `true` to enable EDD licensing.
-- `extra.item_name`: Name of the product in the EDD store (or use `item_id`).
-- `extra.item_id`: Numeric item ID in the EDD store (alternative to `item_name`).
+- `extra.item_name`: Name of the product in the EDD store (e.g. `"Product Name"`).
+- `extra.item_id`: Numeric item ID in the EDD store (e.g. `12345`). Can be used instead of or in addition to `item_name`.
 - `extra.license_var`: Name of the environment variable storing your license key.
 - `extra.url_var`: Name of the environment variable storing your site URL (or a direct URL like `https://example.com`).
+
+> [!NOTE]
+> Some EDD stores identify products by numeric `item_id` rather than name. You can supply `item_id`, `item_name`, or both in `extra`.
 
 ### Step 2: Set environment variables
 
@@ -148,7 +151,6 @@ Please do not report security vulnerabilities publicly. If you identify a securi
 - Inspiration: https://github.com/polylang/polylang/issues/3
 - Motivation: [@szepeviktor](https://github.com/szepeviktor) | https://github.com/polylang/polylang/issues/3#issuecomment-636411477
 - Beta testing: [@nirbhay](https://twitter.com/Nirbhay_18) & [@ideabox](https://twitter.com/helloideabox)
-- Logo icon credits: [prosymbols](https://thenounproject.com/prosymbols)
 - Code inspiration:
   - https://github.com/ffraenz/private-composer-installer/
   - https://github.com/junaidbhura/composer-wp-pro-plugins/
