@@ -38,6 +38,7 @@
         ]
     },
     "extra": {
-        "class": "LubusIN\\ComposerEddPlugin\\Plugin"
+        "class": "LubusIN\\ComposerEddPlugin\\Plugin",
+        "plugin-modifies-downloads": true
     }
 }

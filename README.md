@@ -46,8 +46,8 @@ Add the product to the `repositories` array in your `composer.json`:
         "extra": {
           "edd_installer": true,
           "item_name": "Product Name",
-          "license": "PRODUCT_LICENSE",
-          "url": "PRODUCT_ACTIVATION_URL"
+          "license_var": "PRODUCT_LICENSE",
+          "url_var": "PRODUCT_ACTIVATION_URL"
         }
       }
     }
@@ -64,12 +64,12 @@ Add the product to the `repositories` array in your `composer.json`:
 - `extra.edd_installer`: Set to `true` to enable EDD licensing.
 - `extra.item_name`: Name of the product in the EDD store (or use `item_id`).
 - `extra.item_id`: Numeric item ID in the EDD store (alternative to `item_name`).
-- `extra.license` (or `extra.license_var`): Name of the environment variable storing your license key.
-- `extra.url` (or `extra.url_var`): Name of the environment variable storing your site URL (or a direct URL like `https://example.com`).
+- `extra.license_var`: Name of the environment variable storing your license key.
+- `extra.url_var`: Name of the environment variable storing your site URL (or a direct URL like `https://example.com`).
 
 ### Step 2: Set environment variables
 
-Add the license and site URL to your `.env` file (or set them in your server/CI environment):
+Add the license and site URL to your `.env` file (any `.env*` variant such as `.env.local`, `.env.secret`, or `.env.staging` is automatically discovered and supported) or set them in your server/CI environment:
 
 ```env
 PRODUCT_LICENSE=your-license-key

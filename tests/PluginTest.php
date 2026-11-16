@@ -42,7 +42,7 @@ class PluginTest extends TestCase
         $plugin->deactivate($composer, $io);
         $plugin->uninstall($composer, $io);
 
-        $this->assertTrue(true);
+        $this->assertInstanceOf(Plugin::class, $plugin);
     }
 
     public function testActivateLoadsDotenvFile(): void
@@ -63,6 +63,102 @@ class PluginTest extends TestCase
         $this->assertSame('custom_value', $_ENV['TEST_DOTENV_KEY'] ?? getenv('TEST_DOTENV_KEY'));
 
         unlink($tmpDir . '/.env');
+        rmdir($tmpDir);
+    }
+
+    public function testActivateLoadsDotenvLocalFileOverridingDotenv(): void
+    {
+        $tmpDir = sys_get_temp_dir() . '/edd_test_' . uniqid();
+        mkdir($tmpDir);
+        file_put_contents($tmpDir . '/.env', "TEST_DOTENV_LOCAL_KEY=base_val\n");
+        file_put_contents($tmpDir . '/.env.local', "TEST_DOTENV_LOCAL_KEY=override_val\n");
+
+        $config = $this->createMock(\Composer\Config::class);
+        $config->method('get')->with('vendor-dir')->willReturn($tmpDir . '/vendor');
+
+        $composer = $this->createMockComposer(null, $config);
+        $io = $this->createMockIO();
+
+        $plugin = new Plugin();
+        $plugin->activate($composer, $io);
+
+        $this->assertSame('override_val', $_ENV['TEST_DOTENV_LOCAL_KEY'] ?? getenv('TEST_DOTENV_LOCAL_KEY'));
+
+        unlink($tmpDir . '/.env');
+        unlink($tmpDir . '/.env.local');
+        rmdir($tmpDir);
+    }
+
+    public function testActivateLoadsDotenvSecretFileOverridingLocalAndDotenv(): void
+    {
+        $tmpDir = sys_get_temp_dir() . '/edd_test_' . uniqid();
+        mkdir($tmpDir);
+        file_put_contents($tmpDir . '/.env', "TEST_DOTENV_SECRET_KEY=base_val\n");
+        file_put_contents($tmpDir . '/.env.local', "TEST_DOTENV_SECRET_KEY=local_val\n");
+        file_put_contents($tmpDir . '/.env.secret', "TEST_DOTENV_SECRET_KEY=secret_val\n");
+
+        $config = $this->createMock(\Composer\Config::class);
+        $config->method('get')->with('vendor-dir')->willReturn($tmpDir . '/vendor');
+
+        $composer = $this->createMockComposer(null, $config);
+        $io = $this->createMockIO();
+
+        $plugin = new Plugin();
+        $plugin->activate($composer, $io);
+
+        $this->assertSame('secret_val', $_ENV['TEST_DOTENV_SECRET_KEY'] ?? getenv('TEST_DOTENV_SECRET_KEY'));
+
+        unlink($tmpDir . '/.env');
+        unlink($tmpDir . '/.env.local');
+        unlink($tmpDir . '/.env.secret');
+        rmdir($tmpDir);
+    }
+
+    public function testActivateDynamicallyDiscoversArbitraryEnvFiles(): void
+    {
+        $tmpDir = sys_get_temp_dir() . '/edd_test_' . uniqid();
+        mkdir($tmpDir);
+        file_put_contents($tmpDir . '/.env.staging', "TEST_DOTENV_STAGING_KEY=staging_val\n");
+
+        $config = $this->createMock(\Composer\Config::class);
+        $config->method('get')->with('vendor-dir')->willReturn($tmpDir . '/vendor');
+
+        $composer = $this->createMockComposer(null, $config);
+        $io = $this->createMockIO();
+
+        $plugin = new Plugin();
+        $plugin->activate($composer, $io);
+
+        $this->assertSame('staging_val', $_ENV['TEST_DOTENV_STAGING_KEY'] ?? getenv('TEST_DOTENV_STAGING_KEY'));
+
+        unlink($tmpDir . '/.env.staging');
+        rmdir($tmpDir);
+    }
+
+    public function testActivateIgnoresTemplateAndBackupEnvFiles(): void
+    {
+        $tmpDir = sys_get_temp_dir() . '/edd_test_' . uniqid();
+        mkdir($tmpDir);
+        file_put_contents($tmpDir . '/.env.example', "TEST_DOTENV_EXAMPLE_KEY=example_val\n");
+        file_put_contents($tmpDir . '/.env.dist', "TEST_DOTENV_DIST_KEY=dist_val\n");
+        file_put_contents($tmpDir . '/.env.bak', "TEST_DOTENV_BAK_KEY=bak_val\n");
+
+        $config = $this->createMock(\Composer\Config::class);
+        $config->method('get')->with('vendor-dir')->willReturn($tmpDir . '/vendor');
+
+        $composer = $this->createMockComposer(null, $config);
+        $io = $this->createMockIO();
+
+        $plugin = new Plugin();
+        $plugin->activate($composer, $io);
+
+        $this->assertArrayNotHasKey('TEST_DOTENV_EXAMPLE_KEY', $_ENV);
+        $this->assertArrayNotHasKey('TEST_DOTENV_DIST_KEY', $_ENV);
+        $this->assertArrayNotHasKey('TEST_DOTENV_BAK_KEY', $_ENV);
+
+        unlink($tmpDir . '/.env.example');
+        unlink($tmpDir . '/.env.dist');
+        unlink($tmpDir . '/.env.bak');
         rmdir($tmpDir);
     }
 
@@ -120,7 +216,7 @@ class PluginTest extends TestCase
         $event = $this->createPreFileDownloadEvent($package);
 
         $this->expectException(MissingExtraException::class);
-        $this->expectExceptionMessage("Package extra 'license' is not set.");
+        $this->expectExceptionMessage("Package extra 'license (or license_var)' is not set.");
         $plugin->onPreFileDownload($event);
     }
 
@@ -156,7 +252,7 @@ class PluginTest extends TestCase
         $event = $this->createPreFileDownloadEvent($package);
 
         $this->expectException(MissingExtraException::class);
-        $this->expectExceptionMessage("Package extra 'url' is not set.");
+        $this->expectExceptionMessage("Package extra 'url (or url_var)' is not set.");
         $plugin->onPreFileDownload($event);
     }
 
@@ -548,5 +644,16 @@ class PluginTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Unable to connect to EDD store at "https://store.test": Connection timed out');
         $plugin->onPreFileDownload($event);
+    }
+
+    public function testComposerJsonDeclaresPluginModifiesDownloads(): void
+    {
+        $composerJsonPath = dirname(__DIR__) . '/composer.json';
+        $contents = (string) file_get_contents($composerJsonPath);
+        $data = json_decode($contents, true);
+
+        $this->assertIsArray($data);
+        $this->assertSame(Plugin::class, $data['extra']['class'] ?? null);
+        $this->assertTrue($data['extra']['plugin-modifies-downloads'] ?? false);
     }
 }

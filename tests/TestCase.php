@@ -80,7 +80,7 @@ abstract class TestCase extends BaseTestCase
      * Helper to create a PreFileDownloadEvent.
      *
      * @param mixed $context
-     * @param string $url
+     * @param non-empty-string $url
      * @param string $type
      * @param HttpDownloader|null $httpDownloader
      * @return PreFileDownloadEvent

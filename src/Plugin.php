@@ -37,16 +37,79 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         $this->composer = $composer;
         $this->io       = $io;
 
-        $vendorDir  = $composer->getConfig()->get('vendor-dir');
-        $projectDir = is_string($vendorDir) ? dirname($vendorDir) : getcwd();
+        $cwd = getcwd();
+        $cwd = is_string($cwd) ? $cwd : '.';
 
-        if (file_exists($projectDir . DIRECTORY_SEPARATOR . '.env')) {
-            $dotenv = Dotenv::createImmutable($projectDir);
-            $dotenv->safeLoad();
-        } elseif (file_exists(getcwd() . DIRECTORY_SEPARATOR . '.env')) {
-            $dotenv = Dotenv::createImmutable(getcwd());
-            $dotenv->safeLoad();
+        $vendorDir  = $composer->getConfig()->get('vendor-dir');
+        $projectDir = is_string($vendorDir) ? dirname($vendorDir) : $cwd;
+
+        foreach (array_unique([$projectDir, $cwd]) as $dir) {
+            $envFiles = $this->discoverEnvFiles($dir);
+            if (!empty($envFiles)) {
+                $dotenv = Dotenv::createImmutable($dir, $envFiles, false);
+                $dotenv->safeLoad();
+                break;
+            }
         }
+    }
+
+    /**
+     * Discover all candidate .env files in a directory sorted by load priority.
+     *
+     * @param string $dir
+     * @return array<string>
+     */
+    protected function discoverEnvFiles(string $dir): array
+    {
+        $matches = glob($dir . DIRECTORY_SEPARATOR . '.env*');
+        if ($matches === false || empty($matches)) {
+            return [];
+        }
+
+        $ignoredExtensions = ['example', 'sample', 'dist', 'template', 'bak', 'backup', 'old', 'php'];
+        $files             = [];
+
+        foreach ($matches as $path) {
+            if (!is_file($path)) {
+                continue;
+            }
+
+            $filename = basename($path);
+            $ext      = strtolower((string) pathinfo($filename, PATHINFO_EXTENSION));
+
+            if (in_array($ext, $ignoredExtensions, true)) {
+                continue;
+            }
+
+            $files[] = $filename;
+        }
+
+        if (empty($files)) {
+            return [];
+        }
+
+        usort($files, function (string $a, string $b): int {
+            if ($a === '.env') {
+                return -1;
+            }
+            if ($b === '.env') {
+                return 1;
+            }
+
+            $aIsOverride = strpos($a, 'local') !== false || strpos($a, 'secret') !== false;
+            $bIsOverride = strpos($b, 'local') !== false || strpos($b, 'secret') !== false;
+
+            if ($aIsOverride && !$bIsOverride) {
+                return 1;
+            }
+            if (!$aIsOverride && $bIsOverride) {
+                return -1;
+            }
+
+            return strcmp($a, $b);
+        });
+
+        return $files;
     }
 
     /**
@@ -112,7 +175,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      *
      * @param PackageInterface $package
      * @param array<string, mixed> $extra
-     * @return string
+     * @return non-empty-string
      *
      * @throws MissingExtraException
      * @throws MissingEnvException
@@ -200,7 +263,8 @@ class Plugin implements PluginInterface, EventSubscriberInterface
             );
         }
 
-        $data = json_decode($response->getBody(), true);
+        $body = $response->getBody();
+        $data = json_decode(is_string($body) ? $body : '', true);
         if (!is_array($data)) {
             throw new RuntimeException(
                 sprintf('Invalid JSON response received from EDD store at "%s"', $packageDistUrl)
@@ -208,25 +272,30 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         }
 
         $downloadLink = $data['download_link'] ?? $data['package'] ?? null;
-        if (empty($downloadLink)) {
+        if (empty($downloadLink) || !is_string($downloadLink)) {
             $errorMessage = $data['message'] ?? $data['error'] ?? $data['license'] ?? 'Unknown EDD licensing error or missing download link.';
             throw new RuntimeException(
-                sprintf('EDD Error for package "%s": %s', $package->getName(), $errorMessage)
+                sprintf('EDD Error for package "%s": %s', $package->getName(), is_string($errorMessage) ? $errorMessage : 'Unknown error')
             );
         }
 
-        return (string) $downloadLink;
+        return $downloadLink;
     }
 
     /**
-     * Retrieve environment variable safely.
+     * Retrieve environment variable safely, preferring system/host environment.
      *
      * @param string $key
-     * @return string|null
+     * @return non-empty-string|null
      */
     protected function getEnvValue(string $key): ?string
     {
-        $val = $_ENV[$key] ?? $_SERVER[$key] ?? getenv($key);
-        return ($val !== false && $val !== null && $val !== '') ? (string) $val : null;
+        $env = getenv($key);
+        if ($env !== false && $env !== '') {
+            return $env;
+        }
+
+        $val = $_SERVER[$key] ?? $_ENV[$key] ?? null;
+        return ($val !== null && (string) $val !== '') ? (string) $val : null;
     }
 }
