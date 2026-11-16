@@ -167,7 +167,14 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 
         $downloadUrl = $this->resolveEddDownloadUrl($package, $extra);
         $event->setProcessedUrl($downloadUrl);
-        $event->setCustomCacheKey($package->getName() . '/' . $package->getPrettyVersion());
+        // Identify the source without depending on temporary download URLs or credentials.
+        $event->setCustomCacheKey(hash('sha256', serialize([
+            $package->getName(),
+            $package->getPrettyVersion(),
+            $extra['store_url'] ?? $package->getDistUrl(),
+            $extra['item_id'] ?? null,
+            $extra['item_name'] ?? null,
+        ])));
     }
 
     /**
