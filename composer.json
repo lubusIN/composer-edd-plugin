@@ -2,13 +2,6 @@
     "name": "lubusin/composer-edd-plugin",
     "description": "Composer plugin for installing pro plugins powered by EDD software licensing",
     "type": "composer-plugin",
-    "require": {
-        "composer-plugin-api": "^1.1",
-        "vlucas/phpdotenv": "^4.1"
-    },
-    "require-dev": {
-        "composer/composer": "^1.10"
-    },
     "license": "MIT",
     "authors": [
         {
@@ -16,6 +9,14 @@
             "email": "ajit@lubus.in"
         }
     ],
+    "require": {
+        "php": ">=7.4",
+        "composer-plugin-api": "^2.0",
+        "vlucas/phpdotenv": "^5.6"
+    },
+    "require-dev": {
+        "composer/composer": "^2.0"
+    },
     "autoload": {
         "psr-4": {
             "LubusIN\\ComposerEddPlugin\\": "src"

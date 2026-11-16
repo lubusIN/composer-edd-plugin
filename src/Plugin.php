@@ -1,170 +1,230 @@
 <?php
+
+declare(strict_types=1);
+
 namespace LubusIN\ComposerEddPlugin;
 
 use Composer\Composer;
 use Composer\EventDispatcher\EventSubscriberInterface;
-use Composer\DependencyResolver\Operation\OperationInterface;
 use Composer\IO\IOInterface;
-use Composer\Plugin\PluginInterface;
-use Composer\Installer\PackageEvent;
-use Composer\Installer\PackageEvents;
+use Composer\Package\PackageInterface;
 use Composer\Plugin\PluginEvents;
+use Composer\Plugin\PluginInterface;
 use Composer\Plugin\PreFileDownloadEvent;
 use Dotenv\Dotenv;
 use Exception;
 use LubusIN\ComposerEddPlugin\Exception\MissingAuthException;
-use LubusIN\ComposerEddPlugin\Exception\MissingExtraException;
 use LubusIN\ComposerEddPlugin\Exception\MissingEnvException;
+use LubusIN\ComposerEddPlugin\Exception\MissingExtraException;
+use RuntimeException;
 
 /**
- * Custom Installer Plugin Class.
+ * Composer EDD Plugin.
  */
-class Plugin implements PluginInterface, EventSubscriberInterface {
+class Plugin implements PluginInterface, EventSubscriberInterface
+{
+    protected Composer $composer;
+    protected IOInterface $io;
 
-	protected $composer;
-	protected $io;
-	protected $downloadUrl;
+    /**
+     * Activate the plugin.
+     *
+     * @param Composer $composer
+     * @param IOInterface $io
+     */
+    public function activate(Composer $composer, IOInterface $io): void
+    {
+        $this->composer = $composer;
+        $this->io       = $io;
 
-	/**
-	 * Activate plugin.
-	 *
-	 * @param Composer    $composer
-	 * @param IOInterface $io
-	 */
-	public function activate( Composer $composer, IOInterface $io ) {
-		$this->composer = $composer;
-		$this->io       = $io;
+        $vendorDir  = $composer->getConfig()->get('vendor-dir');
+        $projectDir = is_string($vendorDir) ? dirname($vendorDir) : getcwd();
 
-		if ( file_exists( getcwd() . DIRECTORY_SEPARATOR . '.env' ) ) {
-			$dotenv = Dotenv::createImmutable( getcwd() );
-			$dotenv->load();
-		}
-	}
+        if (file_exists($projectDir . DIRECTORY_SEPARATOR . '.env')) {
+            $dotenv = Dotenv::createImmutable($projectDir);
+            $dotenv->safeLoad();
+        } elseif (file_exists(getcwd() . DIRECTORY_SEPARATOR . '.env')) {
+            $dotenv = Dotenv::createImmutable(getcwd());
+            $dotenv->safeLoad();
+        }
+    }
 
-	/**
-	 * Set subscribed events.
-	 *
-	 * @return array
-	 */
-	public static function getSubscribedEvents() {
-		return array(
-			PackageEvents::PRE_PACKAGE_INSTALL => 'getDownloadUrl',
-			PackageEvents::PRE_PACKAGE_UPDATE => 'getDownloadUrl',
-			PluginEvents::PRE_FILE_DOWNLOAD => 'onPreFileDownload',
-		);
-	}
+    /**
+     * Deactivate the plugin.
+     *
+     * @param Composer $composer
+     * @param IOInterface $io
+     */
+    public function deactivate(Composer $composer, IOInterface $io): void
+    {
+    }
 
-	/**
-	 * Get package from operation.
-	 *
-	 * @param OperationInterface $operation
-	 * @return mixed
-	 */
-	protected function getPackageFromOperation( OperationInterface $operation ) {
-		if ( 'update' === $operation->getJobType() ) {
-			return $operation->getTargetPackage();
-		}
-		return $operation->getPackage();
-	}
+    /**
+     * Prepare the plugin for uninstall.
+     *
+     * @param Composer $composer
+     * @param IOInterface $io
+     */
+    public function uninstall(Composer $composer, IOInterface $io): void
+    {
+    }
 
-	/**
-	 * Get download URL for our plugins.
-	 *
-	 * @param PackageEvent $event
-	 */
-	public function getDownloadUrl( PackageEvent $event ) {
-		$this->downloadUrl = '';
-		$package           = $this->getPackageFromOperation( $event->getOperation() );
-        $package_version   = $package->getPrettyVersion();
-        $package_dist_url  = $package->getDistUrl(); 
-		$package_extra     = $package->getExtra();
-		
-		if (!empty( $package_extra['edd_installer'])) {	
-			if (empty($package_extra['item_name'])) {
-				throw new MissingExtraException('item_name');
-			} 
-	
-			if (empty($package_extra['license'])) {
-				throw new MissingExtraException('license');
-			} 
-			else {
-				if (!getenv($package_extra['license'])) {
-					throw new MissingEnvException('license');
-				}
-			}
-	
-			if (empty($package_extra['url'])) {
-				throw new MissingExtraException('url');
-			} else {
-				if (!getenv($package_extra['url'])) {
-					throw new MissingEnvException('url');
-				}
-			}
+    /**
+     * Set subscribed events.
+     *
+     * @return array<string, array{0: string, 1?: int}>
+     */
+    public static function getSubscribedEvents(): array
+    {
+        return [
+            PluginEvents::PRE_FILE_DOWNLOAD => ['onPreFileDownload', 0],
+        ];
+    }
 
-			if ( file_exists( getcwd() . DIRECTORY_SEPARATOR . 'auth.json' ) ) {
-				$auth_file = getcwd() . DIRECTORY_SEPARATOR . 'auth.json';
-				$auth_data = json_decode(file_get_contents($auth_file), true);
-				$package = parse_url($package_dist_url);
+    /**
+     * Intercept package file download and rewrite URL to EDD download link.
+     *
+     * @param PreFileDownloadEvent $event
+     */
+    public function onPreFileDownload(PreFileDownloadEvent $event): void
+    {
+        if ($event->getType() !== 'package') {
+            return;
+        }
 
-				print $package['host'];
+        $package = $event->getContext();
+        if (!$package instanceof PackageInterface) {
+            return;
+        }
 
-				if (!array_key_exists($package['host'], $auth_data['http-basic'])) {
-					throw new MissingAuthException('Auth credentials missing for ' . $package['host']);
-				}
-			} else {
-				throw new MissingAuthException('Auth file auth.json missing');
-			}
+        $extra = $package->getExtra();
+        if (empty($extra['edd_installer'])) {
+            return;
+        }
 
-			$package_details = [
-				'edd_action' => 'get_version',
-				'license'    => getenv( $package_extra['license'] ),
-				'item_name'  => $package_extra['item_name'],
-				'url'        => getenv( $package_extra['url'] ),
-				'version'    => $package_version,
-			];
+        $downloadUrl = $this->resolveEddDownloadUrl($package, $extra);
+        $event->setProcessedUrl($downloadUrl);
+        $event->setCustomCacheKey($package->getName() . '/' . $package->getPrettyVersion());
+    }
 
-			$context = stream_context_create([
-				"http" => [
-					"method"  => "POST",
-					'header'  =>"Content-Type: application/json; charset=utf-8",
-					"timeout" => 30,
-				],
-			]);
-		
-			$edd_response = file_get_contents($package_dist_url . '?' . http_build_query($package_details), false, $context);
+    /**
+     * Resolve the EDD package download URL from the vendor API.
+     *
+     * @param PackageInterface $package
+     * @param array<string, mixed> $extra
+     * @return string
+     *
+     * @throws MissingExtraException
+     * @throws MissingEnvException
+     * @throws MissingAuthException
+     * @throws RuntimeException
+     */
+    protected function resolveEddDownloadUrl(PackageInterface $package, array $extra): string
+    {
+        if (empty($extra['item_name']) && empty($extra['item_id'])) {
+            throw new MissingExtraException('item_name or item_id');
+        }
 
-			if( !$edd_response) {
-				throw new Exception('Unable to connect to ' . $package_dist_url);
-			}
-			
-			$edd_data = json_decode($edd_response, true); 
+        if (empty($extra['license'])) {
+            throw new MissingExtraException('license');
+        }
 
-			if( !empty($edd_data['download_link'])) {
-				$this->downloadUrl = $edd_data['download_link'];
-			}
+        $licenseKey = $this->getEnvValue($extra['license']);
+        if (!$licenseKey) {
+            throw new MissingEnvException($extra['license']);
+        }
 
-		}
-	}
+        if (empty($extra['url'])) {
+            throw new MissingExtraException('url');
+        }
 
-	/**
-	 * Process our plugin downloads.
-	 *
-	 * @param PreFileDownloadEvent $event
-	 */
-	public function onPreFileDownload( PreFileDownloadEvent $event ) {
-		if ( empty( $this->downloadUrl ) ) {
-			return;
-		}
+        $activationUrl = $this->getEnvValue($extra['url']);
+        if (!$activationUrl && (strpos($extra['url'], 'http://') === 0 || strpos($extra['url'], 'https://') === 0)) {
+            $activationUrl = $extra['url'];
+        }
+        if (!$activationUrl) {
+            throw new MissingEnvException($extra['url']);
+        }
 
-		$RemoteFileSystem = $event->getRemoteFilesystem();
-		$EddStore = new RemoteFilesystem(
-			$this->downloadUrl,
-			$this->io,
-			$this->composer->getConfig(),
-			$RemoteFileSystem->getOptions(),
-			$RemoteFileSystem->isTlsDisabled()
-		);
-		$event->setRemoteFilesystem( $EddStore );
-	}
+        $packageDistUrl = $extra['store_url'] ?? $package->getDistUrl();
+        if (empty($packageDistUrl)) {
+            throw new RuntimeException(sprintf('Package "%s" is missing dist URL or store_url.', $package->getName()));
+        }
 
+        $params = [
+            'edd_action' => 'get_version',
+            'license'    => $licenseKey,
+            'url'        => $activationUrl,
+            'version'    => $package->getPrettyVersion(),
+        ];
+
+        if (!empty($extra['item_name'])) {
+            $params['item_name'] = $extra['item_name'];
+        }
+        if (!empty($extra['item_id'])) {
+            $params['item_id'] = $extra['item_id'];
+        }
+
+        $separator = (strpos($packageDistUrl, '?') === false) ? '?' : '&';
+        $apiUrl    = $packageDistUrl . $separator . http_build_query($params);
+
+        $this->io->writeError(
+            sprintf('  - Requesting EDD package download URL for <info>%s</info>', $package->getName()),
+            true,
+            IOInterface::VERBOSE
+        );
+
+        try {
+            $httpDownloader = $this->composer->getLoop()->getHttpDownloader();
+            $response       = $httpDownloader->get($apiUrl);
+        } catch (Exception $e) {
+            throw new RuntimeException(
+                sprintf('Unable to connect to EDD store at "%s": %s', $packageDistUrl, $e->getMessage()),
+                0,
+                $e
+            );
+        }
+
+        $statusCode = $response->getStatusCode();
+        if ($statusCode === 401 || $statusCode === 403) {
+            throw new MissingAuthException(
+                sprintf('Authentication failed for "%s" (HTTP %d)', $packageDistUrl, $statusCode)
+            );
+        }
+
+        if ($statusCode >= 400) {
+            throw new RuntimeException(
+                sprintf('HTTP %d error when connecting to EDD store at "%s"', $statusCode, $packageDistUrl)
+            );
+        }
+
+        $data = json_decode($response->getBody(), true);
+        if (!is_array($data)) {
+            throw new RuntimeException(
+                sprintf('Invalid JSON response received from EDD store at "%s"', $packageDistUrl)
+            );
+        }
+
+        $downloadLink = $data['download_link'] ?? $data['package'] ?? null;
+        if (empty($downloadLink)) {
+            $errorMessage = $data['message'] ?? $data['error'] ?? $data['license'] ?? 'Unknown EDD licensing error or missing download link.';
+            throw new RuntimeException(
+                sprintf('EDD Error for package "%s": %s', $package->getName(), $errorMessage)
+            );
+        }
+
+        return (string) $downloadLink;
+    }
+
+    /**
+     * Retrieve environment variable safely.
+     *
+     * @param string $key
+     * @return string|null
+     */
+    protected function getEnvValue(string $key): ?string
+    {
+        $val = $_ENV[$key] ?? $_SERVER[$key] ?? getenv($key);
+        return ($val !== false && $val !== null && $val !== '') ? (string) $val : null;
+    }
 }
