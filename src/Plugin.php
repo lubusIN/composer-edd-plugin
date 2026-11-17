@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LubusIN\ComposerEddPlugin;
 
 use Composer\Composer;
+use Composer\Downloader\TransportException;
 use Composer\EventDispatcher\EventSubscriberInterface;
 use Composer\IO\IOInterface;
 use Composer\Package\PackageInterface;
@@ -250,6 +251,10 @@ class Plugin implements PluginInterface, EventSubscriberInterface
             $httpDownloader = $this->composer->getLoop()->getHttpDownloader();
             $response       = $httpDownloader->get($apiUrl);
         } catch (Exception $e) {
+            if ($e instanceof TransportException && $e->getStatusCode() !== null && $e->getStatusCode() >= 400) {
+                $this->throwHttpError($packageDistUrl, $e->getStatusCode(), $e->getResponse(), $e);
+            }
+
             throw new RuntimeException(
                 sprintf('Unable to connect to EDD store at "%s": %s', $packageDistUrl, $e->getMessage()),
                 0,
@@ -258,16 +263,8 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         }
 
         $statusCode = $response->getStatusCode();
-        if ($statusCode === 401 || $statusCode === 403) {
-            throw new MissingAuthException(
-                sprintf('Authentication failed for "%s" (HTTP %d)', $packageDistUrl, $statusCode)
-            );
-        }
-
         if ($statusCode >= 400) {
-            throw new RuntimeException(
-                sprintf('HTTP %d error when connecting to EDD store at "%s"', $statusCode, $packageDistUrl)
-            );
+            $this->throwHttpError($packageDistUrl, $statusCode, $response->getBody());
         }
 
         $body = $response->getBody();
@@ -287,6 +284,32 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         }
 
         return $downloadLink;
+    }
+
+    /**
+     * Report HTTP failures consistently for responses and Composer transport exceptions.
+     */
+    protected function throwHttpError(string $storeUrl, int $statusCode, ?string $body, ?Exception $previous = null): void
+    {
+        $message = ($statusCode === 401 || $statusCode === 403)
+            ? sprintf('Authentication failed for "%s" (HTTP %d)', $storeUrl, $statusCode)
+            : sprintf('HTTP %d error when connecting to EDD store at "%s"', $statusCode, $storeUrl);
+
+        $data = json_decode($body ?? '', true);
+        if (is_array($data)) {
+            foreach (['message', 'error', 'license'] as $field) {
+                if (isset($data[$field]) && is_string($data[$field]) && trim($data[$field]) !== '') {
+                    $message .= ': ' . $data[$field];
+                    break;
+                }
+            }
+        }
+
+        if ($statusCode === 401 || $statusCode === 403) {
+            throw new MissingAuthException($message, $previous);
+        }
+
+        throw new RuntimeException($message, 0, $previous);
     }
 
     /**
