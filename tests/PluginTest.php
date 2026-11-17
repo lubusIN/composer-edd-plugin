@@ -6,6 +6,7 @@ namespace LubusIN\ComposerEddPlugin\Tests;
 
 use Composer\Plugin\PluginEvents;
 use Composer\Downloader\TransportException;
+use Composer\Plugin\PreFileDownloadEvent;
 use Composer\Util\Http\Response;
 use Composer\Util\HttpDownloader;
 use Exception;
@@ -372,7 +373,67 @@ class PluginTest extends TestCase
             'https://store.test/edd-sl/package_download/token123.zip',
             $event->getProcessedUrl()
         );
-        $this->assertSame('vendor/pro-plugin/2.1.0', $event->getCustomCacheKey());
+        $this->assertNotEmpty($event->getCustomCacheKey());
+    }
+
+    public function testCacheKeysSeparateSourcesAndRemainStableAcrossDownloadTokens(): void
+    {
+        putenv('TEST_EDD_LICENSE=secret_license_key');
+
+        $httpDownloader = $this->createMock(HttpDownloader::class);
+        $token = 0;
+        $httpDownloader->method('get')->willReturnCallback(function () use (&$token): Response {
+            return new Response(['url' => 'https://store.test'], 200, [], (string) json_encode([
+                'download_link' => 'https://downloads.test/archive.zip?token=' . ++$token,
+            ]));
+        });
+
+        $plugin = new Plugin();
+        $plugin->activate($this->createMockComposer($httpDownloader), $this->createMockIO());
+
+        $extra = [
+            'edd_installer' => true,
+            'item_id'       => 42,
+            'item_name'     => 'Pro Plugin',
+            'license_var'   => 'TEST_EDD_LICENSE',
+            'url_var'       => 'https://client.test',
+        ];
+
+        /**
+         * @param array<string, mixed> $options
+         */
+        $resolve = function (array $options, string $distUrl = 'https://store.test') use ($plugin, $httpDownloader): PreFileDownloadEvent {
+            $package = $this->createMockPackage($options, $distUrl);
+            $event = $this->createPreFileDownloadEvent($package, 'https://example.com/archive.zip', 'package', $httpDownloader);
+            $plugin->onPreFileDownload($event);
+
+            return $event;
+        };
+
+        $first = $resolve($extra);
+        $second = $resolve($extra);
+        $key = $first->getCustomCacheKey();
+        $this->assertNotEmpty($key);
+        $this->assertNotSame($first->getProcessedUrl(), $second->getProcessedUrl());
+        $this->assertSame($key, $second->getCustomCacheKey());
+        $this->assertNotSame($key, $resolve($extra, 'https://other-store.test')->getCustomCacheKey());
+        $this->assertNotSame($key, $resolve(array_replace($extra, ['item_id' => 43]))->getCustomCacheKey());
+        $this->assertNotSame($key, $resolve(array_replace($extra, ['item_name' => 'Other Plugin']))->getCustomCacheKey());
+
+        // An explicit store_url is the effective source, regardless of dist.url.
+        $override = array_replace($extra, ['store_url' => 'https://store.test']);
+        $this->assertSame($key, $resolve($override, 'https://unused.test')->getCustomCacheKey());
+        $this->assertNotSame($key, $resolve(array_replace($extra, ['store_url' => 'https://other-store.test']))->getCustomCacheKey());
+
+        // Name-only configurations must also distinguish products.
+        unset($extra['item_id']);
+        $this->assertNotSame(
+            $resolve($extra)->getCustomCacheKey(),
+            $resolve(array_replace($extra, ['item_name' => 'Other Plugin']))->getCustomCacheKey()
+        );
+
+        putenv('TEST_EDD_LICENSE=another_license');
+        $this->assertSame($key, $resolve($override)->getCustomCacheKey());
     }
 
     public function testSuccessfulDownloadUrlRewritingWithItemId(): void
