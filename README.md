@@ -161,7 +161,7 @@ Please do not report security vulnerabilities publicly. If you identify a securi
 
 [LUBUS](https://lubus.in/?utm_source=github&utm_medium=open-source&utm_campaign=composer-edd-plugin) is a web design and engineering agency based in Mumbai.
 
-<a href="https://cal.com/lubus">
+<a href="https://book.lubus.in/">
 <img src="https://raw.githubusercontent.com/lubusIN/.github/refs/heads/main/profile/banner.png" />
 </a>
 
